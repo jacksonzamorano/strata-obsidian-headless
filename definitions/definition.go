@@ -4,7 +4,7 @@ import "github.com/jacksonzamorano/strata/component"
 
 var Manifest = component.ComponentManifest{
 	Name:    "obsidian-headless",
-	Version: "1.0.3",
+	Version: "1.0.6",
 }
 
 type EncryptionType string

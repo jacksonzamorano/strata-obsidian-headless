@@ -6,14 +6,18 @@ import (
 	"os"
 	"path"
 	"sync"
+	"time"
 
 	d "github.com/jacksonzamorano/strata-obsidian-headless/definitions"
 	"github.com/jacksonzamorano/strata/component"
 )
 
+const syncCooldown = 5 * time.Second
+
 var stateLock sync.RWMutex
 var vaults map[string]string = map[string]string{}
 var vaultLocks map[string]*sync.Mutex = map[string]*sync.Mutex{}
+var vaultLastSync map[string]time.Time = map[string]time.Time{}
 
 func prepareSync(
 	input *component.ComponentInput[d.PrepareSyncIn, d.PrepareSyncOut],
@@ -63,6 +67,7 @@ func prepareSync(
 	stateLock.Lock()
 	vaults[input.Body.VaultName] = vaultDir
 	vaultLocks[input.Body.VaultName] = &sync.Mutex{}
+	vaultLastSync[input.Body.VaultName] = time.Time{}
 	stateLock.Unlock()
 
 	return input.Return(d.PrepareSyncOut{
@@ -86,7 +91,20 @@ func doSync(
 	vaultLock.Lock()
 	defer vaultLock.Unlock()
 
+	stateLock.RLock()
+	lastSync := vaultLastSync[input.Body.VaultName]
+	stateLock.RUnlock()
+
+	if wait := syncCooldown - time.Since(lastSync); wait > 0 {
+		ctx.Logger.Log("Waiting %s for ob sync cooldown...", wait.Round(time.Millisecond))
+		time.Sleep(wait)
+	}
+
 	res := ctx.Run("ob", "sync", "--path", vaultPath)
+
+	stateLock.Lock()
+	vaultLastSync[input.Body.VaultName] = time.Now()
+	stateLock.Unlock()
 
 	return input.Return(d.SyncOut{
 		Path:   vaultPath,

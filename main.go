@@ -13,6 +13,7 @@ import (
 
 var stateLock sync.RWMutex
 var vaults map[string]string = map[string]string{}
+var vaultLocks map[string]*sync.Mutex = map[string]*sync.Mutex{}
 
 func prepareSync(
 	input *component.ComponentInput[d.PrepareSyncIn, d.PrepareSyncOut],
@@ -61,6 +62,7 @@ func prepareSync(
 	ctx.Logger.Log("Sync setup at '%s'", vaultDir)
 	stateLock.Lock()
 	vaults[input.Body.VaultName] = vaultDir
+	vaultLocks[input.Body.VaultName] = &sync.Mutex{}
 	stateLock.Unlock()
 
 	return input.Return(d.PrepareSyncOut{
@@ -73,12 +75,16 @@ func doSync(
 	ctx *component.ComponentContainer,
 ) *component.ComponentReturn[d.SyncOut] {
 	stateLock.RLock()
-	defer stateLock.RUnlock()
-
 	vaultPath, ok := vaults[input.Body.VaultName]
+	vaultLock := vaultLocks[input.Body.VaultName]
+	stateLock.RUnlock()
+
 	if !ok {
-		return input.Error("Vault not registered, make sure to preapare it.")
+		return input.Error("Vault not registered, make sure to prepare it.")
 	}
+
+	vaultLock.Lock()
+	defer vaultLock.Unlock()
 
 	res := ctx.Run("ob", "sync", "--path", vaultPath)
 

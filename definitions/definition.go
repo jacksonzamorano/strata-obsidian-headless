@@ -3,8 +3,8 @@ package definitions
 import "github.com/jacksonzamorano/strata/component"
 
 var Manifest = component.ComponentManifest{
-	Name:    "strata-obsidian",
-	Version: "1.0.0",
+	Name:    "obsidian-headless",
+	Version: "1.0.3",
 }
 
 type EncryptionType string

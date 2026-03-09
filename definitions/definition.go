@@ -27,7 +27,10 @@ type SyncIn struct {
 	VaultName string
 }
 type SyncOut struct {
-	Path string
+	Path   string
+	Output string
+	Error  string
+	Ok     bool
 }
 
 var PrepareSync = component.Define[PrepareSyncIn, PrepareSyncOut](Manifest, "prepare-sync")

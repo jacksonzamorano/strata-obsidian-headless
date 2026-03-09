@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"sync"
@@ -79,10 +80,13 @@ func doSync(
 		return input.Error("Vault not registered, make sure to preapare it.")
 	}
 
-	ctx.Run("ob", "sync", "--path", vaultPath)
+	res := ctx.Run("ob", "sync", "--path", vaultPath)
 
 	return input.Return(d.SyncOut{
-		Path: vaultPath,
+		Path:   vaultPath,
+		Output: res.Output,
+		Error:  fmt.Sprintf("%s (code %d)", res.Error, res.Code),
+		Ok:     res.Ok,
 	})
 }
 

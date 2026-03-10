@@ -12,7 +12,7 @@ import (
 	"github.com/jacksonzamorano/strata/component"
 )
 
-const syncCooldown = 5 * time.Second
+const syncCooldown = 10 * time.Second
 
 var stateLock sync.RWMutex
 var vaults map[string]string = map[string]string{}

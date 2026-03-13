@@ -6,18 +6,14 @@ import (
 	"os"
 	"path"
 	"sync"
-	"time"
 
 	d "github.com/jacksonzamorano/strata-obsidian-headless/definitions"
 	"github.com/jacksonzamorano/strata/component"
 )
 
-const syncCooldown = 10 * time.Second
-
 var stateLock sync.RWMutex
 var vaults map[string]string = map[string]string{}
 var vaultLocks map[string]*sync.Mutex = map[string]*sync.Mutex{}
-var vaultLastSync map[string]time.Time = map[string]time.Time{}
 
 func prepareSync(
 	input *component.ComponentInput[d.PrepareSyncIn, d.PrepareSyncOut],
@@ -67,7 +63,6 @@ func prepareSync(
 	stateLock.Lock()
 	vaults[input.Body.VaultName] = vaultDir
 	vaultLocks[input.Body.VaultName] = &sync.Mutex{}
-	vaultLastSync[input.Body.VaultName] = time.Time{}
 	stateLock.Unlock()
 
 	return input.Return(d.PrepareSyncOut{
@@ -91,20 +86,7 @@ func doSync(
 	vaultLock.Lock()
 	defer vaultLock.Unlock()
 
-	stateLock.RLock()
-	lastSync := vaultLastSync[input.Body.VaultName]
-	stateLock.RUnlock()
-
-	if wait := syncCooldown - time.Since(lastSync); wait > 0 {
-		ctx.Logger.Log("Waiting %s for ob sync cooldown...", wait.Round(time.Millisecond))
-		time.Sleep(wait)
-	}
-
-	res := ctx.Run("ob", "sync", "--path", vaultPath)
-
-	stateLock.Lock()
-	vaultLastSync[input.Body.VaultName] = time.Now()
-	stateLock.Unlock()
+	res := ctx.RunInDirectory(vaultPath, "ob", "sync")
 
 	return input.Return(d.SyncOut{
 		Path:   vaultPath,
@@ -114,10 +96,37 @@ func doSync(
 	})
 }
 
+func syncDaemon(
+	in *component.ComponentInput[d.SyncDaemonIn, d.SyncDaemonOut],
+	ctx *component.ComponentContainer,
+) *component.ComponentReturn[d.SyncDaemonOut] {
+	stateLock.RLock()
+	vaultPath, ok := vaults[in.Body.VaultName]
+	vaultLock := vaultLocks[in.Body.VaultName]
+	stateLock.RUnlock()
+	if !ok {
+		return in.Error("Vault not registered, make sure to prepare it.")
+	}
+
+	vaultLock.Lock()
+	cfg := component.ComponentDaemonConfig{
+		WorkingDirectory: vaultPath,
+		Program:          "ob",
+		Args:             []string{"sync", "--continuous"},
+		Exited: func(r component.ComponentExecuteResponse) {
+			ctx.Logger.Log("Obsidian sync exited with error: %s", r.Error)
+			vaultLock.Unlock()
+		},
+	}
+	ctx.StartDaemonInDirectory(cfg)
+	return in.Return(d.SyncDaemonOut{})
+}
+
 func main() {
 	component.CreateComponent(
 		d.Manifest,
 		component.Mount(d.PrepareSync, prepareSync),
 		component.Mount(d.Sync, doSync),
+		component.Mount(d.SyncDaemon, syncDaemon),
 	).Start()
 }

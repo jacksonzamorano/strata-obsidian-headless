@@ -33,5 +33,11 @@ type SyncOut struct {
 	Ok     bool
 }
 
+type SyncDaemonIn struct {
+	VaultName string
+}
+type SyncDaemonOut struct {}
+
 var PrepareSync = component.Define[PrepareSyncIn, PrepareSyncOut](Manifest, "prepare-sync")
 var Sync = component.Define[SyncIn, SyncOut](Manifest, "sync")
+var SyncDaemon = component.Define[SyncDaemonIn, SyncDaemonOut](Manifest, "sync-daemon")

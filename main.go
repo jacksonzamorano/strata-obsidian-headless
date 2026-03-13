@@ -115,9 +115,10 @@ func syncDaemon(
 		Program:          "ob",
 		Args:             []string{"sync", "--continuous"},
 		Exited: func(r component.ComponentExecuteResponse) {
-			enc, _ := json.Marshal(r)
-			ctx.Logger.Log("Obsidian sync exited with error: %s", string(enc))
-			vaultLock.Unlock()
+			if !r.Ok {
+				ctx.Logger.Log("Obsidian sync exited with error: %s", r.Error)
+				vaultLock.Unlock()
+			}
 		},
 	}
 	ctx.StartDaemonInDirectory(cfg)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -114,7 +115,8 @@ func syncDaemon(
 		Program:          "ob",
 		Args:             []string{"sync", "--continuous"},
 		Exited: func(r component.ComponentExecuteResponse) {
-			ctx.Logger.Log("Obsidian sync exited with error: %s", r.Error)
+			enc, _ := json.Marshal(r)
+			ctx.Logger.Log("Obsidian sync exited with error: %s", string(enc))
 			vaultLock.Unlock()
 		},
 	}

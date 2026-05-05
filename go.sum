@@ -1,2 +1,6 @@
 github.com/jacksonzamorano/strata v1.3.11 h1:Ar06kU+cQxKTq+7kzDAqveLM/1L5+ejkGIaSuHiK47w=
 github.com/jacksonzamorano/strata v1.3.11/go.mod h1:bzaYHefGqGJ8tBSM3uY1FMOravwr/BihOmsAWjec5tk=
+github.com/jacksonzamorano/strata v1.4.0 h1:4FgmCOGNZ369/8gotRczPUhPS+I8XLx4QRnkSSiKZaw=
+github.com/jacksonzamorano/strata v1.4.0/go.mod h1:bzaYHefGqGJ8tBSM3uY1FMOravwr/BihOmsAWjec5tk=
+github.com/mattn/go-sqlite3 v1.14.34 h1:3NtcvcUnFBPsuRcno8pUtupspG/GM+9nZ88zgJcp6Zk=
+github.com/mattn/go-sqlite3 v1.14.34/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=

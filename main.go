@@ -16,21 +16,21 @@ var vaults map[string]string = map[string]string{}
 var vaultLocks map[string]*sync.Mutex = map[string]*sync.Mutex{}
 
 func prepareSync(
-	input *component.ComponentInput[d.PrepareSyncIn, d.PrepareSyncOut],
+	input d.PrepareSyncIn,
 	ctx *component.ComponentContainer,
-) *component.ComponentReturn[d.PrepareSyncOut] {
+) (*d.PrepareSyncOut, error) {
 	res := ctx.Run("which", "ob")
 	if !res.Ok {
 		ctx.Logger.Log("No Obsidian headless detected, installing now.")
 		res := ctx.Run("npm", "i", "-g", "obsidian-headless")
 		if !res.Ok {
 			ctx.Logger.Log("Could not install Obsidian headless. Make sure Node and NPM are installed. Error: %s", res.Error)
-			return input.Error("Couldn't install.")
+			return nil, errors.New("Couldn't install.")
 		}
 	}
 	ctx.Logger.Log("Found Obsidian!")
 
-	vaultDir := path.Join(ctx.StorageDir, "vaults", input.Body.VaultName)
+	vaultDir := path.Join(ctx.StorageDir, "vaults", input.VaultName)
 	_, err := os.Stat(vaultDir)
 	if errors.Is(err, os.ErrNotExist) {
 		os.MkdirAll(vaultDir, 0755)
@@ -39,7 +39,7 @@ func prepareSync(
 	activated := false
 
 	for !activated {
-		activate := ctx.Run("ob", "sync-setup", "--vault", input.Body.VaultName, "--password", input.Body.EncyptionKey, "--path", vaultDir)
+		activate := ctx.Run("ob", "sync-setup", "--vault", input.VaultName, "--password", input.EncyptionKey, "--path", vaultDir)
 		if !activate.Ok {
 			if activate.Code == 2 {
 				username, _ := ctx.RequestSecret("Obsidian email")
@@ -52,7 +52,7 @@ func prepareSync(
 				}
 			} else {
 				ctx.Logger.Log("Could not setup Obsidian, got %s", activate.Error)
-				return input.Error("Couldn't activate.")
+				return nil, errors.New("Couldn't activate.")
 			}
 		} else {
 			break
@@ -61,26 +61,26 @@ func prepareSync(
 
 	ctx.Logger.Log("Sync setup at '%s'", vaultDir)
 	stateLock.Lock()
-	vaults[input.Body.VaultName] = vaultDir
-	vaultLocks[input.Body.VaultName] = &sync.Mutex{}
+	vaults[input.VaultName] = vaultDir
+	vaultLocks[input.VaultName] = &sync.Mutex{}
 	stateLock.Unlock()
 
-	return input.Return(d.PrepareSyncOut{
+	return &d.PrepareSyncOut{
 		Path: vaultDir,
-	})
+	}, nil
 }
 
 func doSync(
-	input *component.ComponentInput[d.SyncIn, d.SyncOut],
+	input d.SyncIn,
 	ctx *component.ComponentContainer,
-) *component.ComponentReturn[d.SyncOut] {
+) (*d.SyncOut, error) {
 	stateLock.RLock()
-	vaultPath, ok := vaults[input.Body.VaultName]
-	vaultLock := vaultLocks[input.Body.VaultName]
+	vaultPath, ok := vaults[input.VaultName]
+	vaultLock := vaultLocks[input.VaultName]
 	stateLock.RUnlock()
 
 	if !ok {
-		return input.Error("Vault not registered, make sure to prepare it.")
+		return nil, errors.New("Vault not registered, make sure to prepare it.")
 	}
 
 	vaultLock.Lock()
@@ -88,24 +88,24 @@ func doSync(
 
 	res := ctx.RunInDirectory(vaultPath, "ob", "sync")
 
-	return input.Return(d.SyncOut{
+	return &d.SyncOut{
 		Path:   vaultPath,
 		Output: res.Output,
 		Error:  fmt.Sprintf("%s (code %d)", res.Error, res.Code),
 		Ok:     res.Ok,
-	})
+	}, nil
 }
 
 func syncDaemon(
-	in *component.ComponentInput[d.SyncDaemonIn, d.SyncDaemonOut],
+	in d.SyncDaemonIn,
 	ctx *component.ComponentContainer,
-) *component.ComponentReturn[d.SyncDaemonOut] {
+) (*d.SyncDaemonOut, error) {
 	stateLock.RLock()
-	vaultPath, ok := vaults[in.Body.VaultName]
-	vaultLock := vaultLocks[in.Body.VaultName]
+	vaultPath, ok := vaults[in.VaultName]
+	vaultLock := vaultLocks[in.VaultName]
 	stateLock.RUnlock()
 	if !ok {
-		return in.Error("Vault not registered, make sure to prepare it.")
+		return nil, errors.New("Vault not registered, make sure to prepare it.")
 	}
 
 	vaultLock.Lock()
@@ -121,7 +121,7 @@ func syncDaemon(
 		},
 	}
 	ctx.StartDaemonInDirectory(cfg)
-	return in.Return(d.SyncDaemonOut{})
+	return &d.SyncDaemonOut{}, nil
 }
 
 func main() {
